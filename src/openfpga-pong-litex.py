@@ -10,10 +10,13 @@
 
 from litex.gen import *
 
+from litex.build.io import DDROutput
+
 from litex_boards.platforms import analog_pocket
 
 from litex.soc.integration.soc_core import *
 from litex.soc.integration.builder import *
+
 
 # BaseSoC ------------------------------------------------------------------------------------------
 
@@ -49,6 +52,18 @@ class BaseSoC(SoCMini):
         vpll_feed = platform.request("vpll_feed")
         aux_sda   = platform.request("aux_sda")
         aux_scl   = platform.request("aux_scl")
+
+        # Video Pads.
+        # -----------
+        class VideoPads:
+            rgb          = Signal(24)
+            rgb_clock    = Signal()
+            rgb_clock_90 = Signal()
+            de           = Signal()
+            skip         = Signal()
+            vs           = Signal()
+            hs           = Signal()
+        video = VideoPads()
 
         # APF Top Instance.
         # -----------------
@@ -93,16 +108,17 @@ class BaseSoC(SoCMini):
 
             # Scaler.
             # -------
-            io_scal_vid    = scal.vid,
-            io_scal_clk    = scal.clk,
-            io_scal_de     = scal.de,
-            io_scal_skip   = scal.skip,
-            io_scal_vs     = scal.vs,
-            io_scal_hs     = scal.hs,
-            o_scal_audmclk = scal.audmclk,
-            i_scal_audadc  = scal.audadc,
-            o_scal_auddac  = scal.auddac,
-            o_scal_audlrck = scal.audlrck,
+            o_video_rgb          = video.rgb,
+            o_video_rgb_clock    = video.rgb_clock,
+            o_video_rgb_clock_90 = video.rgb_clock_90,
+            o_video_de           = video.de,
+            o_video_skip         = video.skip,
+            o_video_vs           = video.vs,
+            o_video_hs           = video.hs,
+            o_scal_audmclk       = scal.audmclk,
+            i_scal_audadc        = scal.audadc,
+            o_scal_auddac        = scal.auddac,
+            o_scal_audlrck       = scal.audlrck,
 
             # Bridge.
             # -------
@@ -175,6 +191,33 @@ class BaseSoC(SoCMini):
             io_aux_sda  = aux_sda,
             o_aux_scl   = aux_scl,
         )
+
+        # Video DDR Output (24-bit SDR to 12-bit DDR).
+        # --------------------------------------------
+        # Clk.
+        self.specials += DDROutput(
+            i1  = 1,
+            i2  = 0,
+            o   = scal.clk,
+            clk = video.rgb_clock_90,
+        )
+        # Ctrl.
+        for name in ["de", "skip", "hs", "vs"]:
+            self.specials += DDROutput(
+                i1  = getattr(video, name),
+                i2  = getattr(video, name),
+                o   = getattr(scal, name),
+                clk = video.rgb_clock
+            )
+
+        # Data.
+        for n in range(12):
+            self.specials += DDROutput(
+                i1  = video.rgb[12 + n],
+                i2  = video.rgb[ 0 + n],
+                o   = scal.vid[n],
+                clk = video.rgb_clock
+            )
 
         # APF Sources.
         # ------------

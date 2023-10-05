@@ -105,12 +105,13 @@ output  wire            port_tran_sd_dir,
 ///////////////////////////////////////////////////
 // video output to the scaler
 
-inout   wire    [11:0]  scal_vid,
-inout   wire            scal_clk,
-inout   wire            scal_de,
-inout   wire            scal_skip,
-inout   wire            scal_vs,
-inout   wire            scal_hs,
+output  wire    [23:0]  video_rgb,
+output  wire            video_rgb_clock,
+output  wire            video_rgb_clock_90,
+output  wire            video_de,
+output  wire            video_skip,
+output  wire            video_vs,
+output  wire            video_hs,
 
 output  wire            scal_audmclk,
 input   wire            scal_audadc,
@@ -230,54 +231,6 @@ always @(posedge clk_74a) begin
     end
 
 end
-
-
-
-
-// convert 24-bit rgb data to 12-bit DDR for ARISTOTLE
-
-    wire    [23:0]  video_rgb;
-    wire            video_rgb_clock;
-    wire            video_rgb_clock_90;
-    wire            video_de;
-    wire            video_skip;
-    wire            video_vs;
-    wire            video_hs;
-
-mf_ddio_bidir_12 isco (
-    .oe ( 1'b1 ),
-    .datain_h ( video_rgb[23:12] ),
-    .datain_l ( video_rgb[11: 0] ),
-    .outclock ( video_rgb_clock ),
-    .padio ( scal_ddio_12 )
-);
-
-wire    [11:0]  scal_ddio_12;
-assign scal_vid = scal_ddio_12;
-
-mf_ddio_bidir_12 iscc (
-    .oe ( 1'b1 ),
-    .datain_h ( {video_vs, video_hs, video_de, video_skip} ),
-    .datain_l ( {video_vs, video_hs, video_de, video_skip} ),
-    .outclock ( video_rgb_clock ),
-    .padio ( scal_ddio_ctrl )
-);
-
-wire    [3:0]   scal_ddio_ctrl;
-assign scal_vs = scal_ddio_ctrl[3];
-assign scal_hs = scal_ddio_ctrl[2];
-assign scal_de = scal_ddio_ctrl[1];
-assign scal_skip = scal_ddio_ctrl[0];
-
-mf_ddio_bidir_12 isclk(
-    .oe ( 1'b1 ),
-    .datain_h ( 1'b1 ),
-    .datain_l ( 1'b0 ),
-    .outclock ( video_rgb_clock_90 ),
-    .padio ( scal_clk )
-);
-
-
 
 // controller data (pad) controller.
     wire    [31:0]  cont1_key;
